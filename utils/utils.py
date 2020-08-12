@@ -10,6 +10,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import matplotlib.pyplot as plt
 
+
 class DecodeBox(nn.Module):
     def __init__(self, anchors, num_classes, img_size):
         super(DecodeBox, self).__init__()
@@ -37,14 +38,15 @@ class DecodeBox(nn.Module):
 
         # 把先验框的尺寸调整成特征层大小的形式
         # 计算出先验框在特征层上对应的宽高
-        scaled_anchors = [(anchor_width / stride_w, anchor_height / stride_h) for anchor_width, anchor_height in self.anchors]
+        scaled_anchors = [(anchor_width / stride_w, anchor_height / stride_h)
+                          for anchor_width, anchor_height in self.anchors]
 
         # bs,3*(5+num_classes),13,13 -> bs,3,13,13,(5+num_classes)
         prediction = input.view(batch_size, self.num_anchors,
                                 self.bbox_attrs, input_height, input_width).permute(0, 1, 3, 4, 2).contiguous()
 
         # 先验框的中心位置的调整参数
-        x = torch.sigmoid(prediction[..., 0])  
+        x = torch.sigmoid(prediction[..., 0])
         y = torch.sigmoid(prediction[..., 1])
         # 先验框的宽高调整参数
         w = prediction[..., 2]  # Width
@@ -67,9 +69,11 @@ class DecodeBox(nn.Module):
         # 生成先验框的宽高
         anchor_w = FloatTensor(scaled_anchors).index_select(1, LongTensor([0]))
         anchor_h = FloatTensor(scaled_anchors).index_select(1, LongTensor([1]))
-        anchor_w = anchor_w.repeat(batch_size, 1).repeat(1, 1, input_height * input_width).view(w.shape)
-        anchor_h = anchor_h.repeat(batch_size, 1).repeat(1, 1, input_height * input_width).view(h.shape)
-        
+        anchor_w = anchor_w.repeat(batch_size, 1).repeat(
+            1, 1, input_height * input_width).view(w.shape)
+        anchor_h = anchor_h.repeat(batch_size, 1).repeat(
+            1, 1, input_height * input_width).view(h.shape)
+
         # 计算调整后的先验框中心与宽高
         pred_boxes = FloatTensor(prediction[..., :4].shape)
         pred_boxes[..., 0] = x.data + grid_x
@@ -90,8 +94,8 @@ class DecodeBox(nn.Module):
         #     plt.xlim(0,52)
         # plt.scatter(grid_x.cpu(),grid_y.cpu())
 
-        # anchor_left = grid_x - anchor_w/2 
-        # anchor_top = grid_y - anchor_h/2 
+        # anchor_left = grid_x - anchor_w/2
+        # anchor_top = grid_y - anchor_h/2
 
         # rect1 = plt.Rectangle([anchor_left[0,0,5,5],anchor_top[0,0,5,5]],anchor_w[0,0,5,5],anchor_h[0,0,5,5],color="r",fill=False)
         # rect2 = plt.Rectangle([anchor_left[0,1,5,5],anchor_top[0,1,5,5]],anchor_w[0,1,5,5],anchor_h[0,1,5,5],color="r",fill=False)
@@ -114,8 +118,8 @@ class DecodeBox(nn.Module):
         # plt.scatter(grid_x.cpu(),grid_y.cpu())
         # plt.scatter(pred_boxes[0,:,5,5,0].cpu(),pred_boxes[0,:,5,5,1].cpu(),c='r')
 
-        # pre_left = pred_boxes[...,0] - pred_boxes[...,2]/2 
-        # pre_top = pred_boxes[...,1] - pred_boxes[...,3]/2 
+        # pre_left = pred_boxes[...,0] - pred_boxes[...,2]/2
+        # pre_top = pred_boxes[...,1] - pred_boxes[...,3]/2
 
         # rect1 = plt.Rectangle([pre_left[0,0,5,5],pre_top[0,0,5,5]],pred_boxes[0,0,5,5,2],pred_boxes[0,0,5,5,3],color="r",fill=False)
         # rect2 = plt.Rectangle([pre_left[0,1,5,5],pre_top[0,1,5,5]],pred_boxes[0,1,5,5,2],pred_boxes[0,1,5,5,3],color="r",fill=False)
@@ -131,7 +135,8 @@ class DecodeBox(nn.Module):
         output = torch.cat((pred_boxes.view(batch_size, -1, 4) * _scale,
                             conf.view(batch_size, -1, 1), pred_cls.view(batch_size, -1, self.num_classes)), -1)
         return output.data
-        
+
+
 def letterbox_image(image, size):
     iw, ih = image.size
     w, h = size
@@ -139,10 +144,11 @@ def letterbox_image(image, size):
     nw = int(iw*scale)
     nh = int(ih*scale)
 
-    image = image.resize((nw,nh), Image.BICUBIC)
-    new_image = Image.new('RGB', size, (128,128,128))
+    image = image.resize((nw, nh), Image.BICUBIC)
+    new_image = Image.new('RGB', size, (128, 128, 128))
     new_image.paste(image, ((w-nw)//2, (h-nh)//2))
     return new_image
+
 
 def yolo_correct_boxes(top, left, bottom, right, input_shape, image_shape):
     new_shape = image_shape*np.min(input_shape/image_shape)
@@ -150,23 +156,25 @@ def yolo_correct_boxes(top, left, bottom, right, input_shape, image_shape):
     offset = (input_shape-new_shape)/2./input_shape
     scale = input_shape/new_shape
 
-    box_yx = np.concatenate(((top+bottom)/2,(left+right)/2),axis=-1)/input_shape
-    box_hw = np.concatenate((bottom-top,right-left),axis=-1)/input_shape
+    box_yx = np.concatenate(
+        ((top+bottom)/2, (left+right)/2), axis=-1)/input_shape
+    box_hw = np.concatenate((bottom-top, right-left), axis=-1)/input_shape
 
     box_yx = (box_yx - offset) * scale
     box_hw *= scale
 
     box_mins = box_yx - (box_hw / 2.)
     box_maxes = box_yx + (box_hw / 2.)
-    boxes =  np.concatenate([
+    boxes = np.concatenate([
         box_mins[:, 0:1],
         box_mins[:, 1:2],
         box_maxes[:, 0:1],
         box_maxes[:, 1:2]
-    ],axis=-1)
+    ], axis=-1)
     print(np.shape(boxes))
-    boxes *= np.concatenate([image_shape, image_shape],axis=-1)
+    boxes *= np.concatenate([image_shape, image_shape], axis=-1)
     return boxes
+
 
 def bbox_iou(box1, box2, x1y1x2y2=True):
     """
@@ -178,8 +186,10 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
         b2_x1, b2_x2 = box2[:, 0] - box2[:, 2] / 2, box2[:, 0] + box2[:, 2] / 2
         b2_y1, b2_y2 = box2[:, 1] - box2[:, 3] / 2, box2[:, 1] + box2[:, 3] / 2
     else:
-        b1_x1, b1_y1, b1_x2, b1_y2 = box1[:, 0], box1[:, 1], box1[:, 2], box1[:, 3]
-        b2_x1, b2_y1, b2_x2, b2_y2 = box2[:, 0], box2[:, 1], box2[:, 2], box2[:, 3]
+        b1_x1, b1_y1, b1_x2, b1_y2 = box1[:,
+                                          0], box1[:, 1], box1[:, 2], box1[:, 3]
+        b2_x1, b2_y1, b2_x2, b2_y2 = box2[:,
+                                          0], box2[:, 1], box2[:, 2], box2[:, 3]
 
     inter_rect_x1 = torch.max(b1_x1, b2_x1)
     inter_rect_y1 = torch.max(b1_y1, b2_y1)
@@ -187,8 +197,8 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
     inter_rect_y2 = torch.min(b1_y2, b2_y2)
 
     inter_area = torch.clamp(inter_rect_x2 - inter_rect_x1 + 1, min=0) * \
-                 torch.clamp(inter_rect_y2 - inter_rect_y1 + 1, min=0)
-                 
+        torch.clamp(inter_rect_y2 - inter_rect_y1 + 1, min=0)
+
     b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
     b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
 
@@ -216,10 +226,12 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
             continue
 
         # 获得种类及其置信度
-        class_conf, class_pred = torch.max(image_pred[:, 5:5 + num_classes], 1, keepdim=True)
+        class_conf, class_pred = torch.max(
+            image_pred[:, 5:5 + num_classes], 1, keepdim=True)
 
         # 获得的内容为(x1, y1, x2, y2, obj_conf, class_conf, class_pred)
-        detections = torch.cat((image_pred[:, :5], class_conf.float(), class_pred.float()), 1)
+        detections = torch.cat(
+            (image_pred[:, :5], class_conf.float(), class_pred.float()), 1)
 
         # 获得种类
         unique_labels = detections[:, -1].cpu().unique()
@@ -231,7 +243,8 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
             # 获得某一类初步筛选后全部的预测结果
             detections_class = detections[detections[:, -1] == c]
             # 按照存在物体的置信度排序
-            _, conf_sort_index = torch.sort(detections_class[:, 4], descending=True)
+            _, conf_sort_index = torch.sort(
+                detections_class[:, 4], descending=True)
             detections_class = detections_class[conf_sort_index]
             # 进行非极大抑制
             max_detections = []
@@ -250,12 +263,13 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
 
     return output
 
+
 def merge_bboxes(bboxes, cutx, cuty):
     merge_bbox = []
     for i in range(len(bboxes)):
         for box in bboxes[i]:
             tmp_box = []
-            x1,y1,x2,y2 = box[0], box[1], box[2], box[3]
+            x1, y1, x2, y2 = box[0], box[1], box[2], box[3]
 
             if i == 0:
                 if y1 > cuty or x1 > cutx:
@@ -268,7 +282,7 @@ def merge_bboxes(bboxes, cutx, cuty):
                     x2 = cutx
                     if x2-x1 < 5:
                         continue
-                
+
             if i == 1:
                 if y2 < cuty or x1 > cutx:
                     continue
@@ -277,7 +291,7 @@ def merge_bboxes(bboxes, cutx, cuty):
                     y1 = cuty
                     if y2-y1 < 5:
                         continue
-                
+
                 if x2 >= cutx and x1 <= cutx:
                     x2 = cutx
                     if x2-x1 < 5:

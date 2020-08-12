@@ -13,6 +13,7 @@ from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
 from nets.yolo_training import Generator
 import cv2
 
+
 class YoloDataset(Dataset):
     def __init__(self, train_lines, image_size, mosaic=True):
         super(YoloDataset, self).__init__()
@@ -35,10 +36,12 @@ class YoloDataset(Dataset):
         image = Image.open(line[0])
         iw, ih = image.size
         h, w = input_shape
-        box = np.array([np.array(list(map(int, box.split(',')))) for box in line[1:]])
+        box = np.array([np.array(list(map(int, box.split(','))))
+                        for box in line[1:]])
 
         # 调整图片大小
-        new_ar = w / h * self.rand(1 - jitter, 1 + jitter) / self.rand(1 - jitter, 1 + jitter)
+        new_ar = w / h * self.rand(1 - jitter, 1 +
+                                   jitter) / self.rand(1 - jitter, 1 + jitter)
         scale = self.rand(.25, 2)
         if new_ar < 1:
             nh = int(scale * h)
@@ -65,16 +68,17 @@ class YoloDataset(Dataset):
         hue = self.rand(-hue, hue)
         sat = self.rand(1, sat) if self.rand() < .5 else 1 / self.rand(1, sat)
         val = self.rand(1, val) if self.rand() < .5 else 1 / self.rand(1, val)
-        x = cv2.cvtColor(np.array(image,np.float32)/255, cv2.COLOR_RGB2HSV)
+        x = cv2.cvtColor(np.array(image, np.float32)/255, cv2.COLOR_RGB2HSV)
         x[..., 0] += hue*360
-        x[..., 0][x[..., 0]>1] -= 1
-        x[..., 0][x[..., 0]<0] += 1
+        x[..., 0][x[..., 0] > 1] -= 1
+        x[..., 0][x[..., 0] < 0] += 1
         x[..., 1] *= sat
         x[..., 2] *= val
-        x[x[:,:, 0]>360, 0] = 360
-        x[:, :, 1:][x[:, :, 1:]>1] = 1
-        x[x<0] = 0
-        image_data = cv2.cvtColor(x, cv2.COLOR_HSV2RGB)*255 # numpy array, 0 to 1
+        x[x[:, :, 0] > 360, 0] = 360
+        x[:, :, 1:][x[:, :, 1:] > 1] = 1
+        x[x < 0] = 0
+        image_data = cv2.cvtColor(x, cv2.COLOR_HSV2RGB) * \
+            255  # numpy array, 0 to 1
 
         # 调整目标框坐标
         box_data = np.zeros((len(box), 5))
@@ -122,7 +126,8 @@ class YoloDataset(Dataset):
             # 图片的大小
             iw, ih = image.size
             # 保存框的位置
-            box = np.array([np.array(list(map(int, box.split(',')))) for box in line_content[1:]])
+            box = np.array([np.array(list(map(int, box.split(','))))
+                            for box in line_content[1:]])
 
             # 是否翻转图片
             flip = self.rand() < .5
@@ -143,18 +148,21 @@ class YoloDataset(Dataset):
 
             # 进行色域变换
             hue = self.rand(-hue, hue)
-            sat = self.rand(1, sat) if self.rand() < .5 else 1 / self.rand(1, sat)
-            val = self.rand(1, val) if self.rand() < .5 else 1 / self.rand(1, val)
-            x = cv2.cvtColor(np.array(image,np.float32)/255, cv2.COLOR_RGB2HSV)
+            sat = self.rand(1, sat) if self.rand(
+            ) < .5 else 1 / self.rand(1, sat)
+            val = self.rand(1, val) if self.rand(
+            ) < .5 else 1 / self.rand(1, val)
+            x = cv2.cvtColor(np.array(image, np.float32) /
+                             255, cv2.COLOR_RGB2HSV)
             x[..., 0] += hue*360
-            x[..., 0][x[..., 0]>1] -= 1
-            x[..., 0][x[..., 0]<0] += 1
+            x[..., 0][x[..., 0] > 1] -= 1
+            x[..., 0][x[..., 0] < 0] += 1
             x[..., 1] *= sat
             x[..., 2] *= val
-            x[x[:,:, 0]>360, 0] = 360
-            x[:, :, 1:][x[:, :, 1:]>1] = 1
-            x[x<0] = 0
-            image = cv2.cvtColor(x, cv2.COLOR_HSV2RGB) # numpy array, 0 to 1
+            x[x[:, :, 0] > 360, 0] = 360
+            x[:, :, 1:][x[:, :, 1:] > 1] = 1
+            x[x < 0] = 0
+            image = cv2.cvtColor(x, cv2.COLOR_HSV2RGB)  # numpy array, 0 to 1
 
             image = Image.fromarray((image * 255).astype(np.uint8))
             # 将图片进行放置，分别对应四张分割图片的位置
@@ -185,8 +193,10 @@ class YoloDataset(Dataset):
             box_datas.append(box_data)
 
         # 将图片分割，放在一起
-        cutx = np.random.randint(int(w * min_offset_x), int(w * (1 - min_offset_x)))
-        cuty = np.random.randint(int(h * min_offset_y), int(h * (1 - min_offset_y)))
+        cutx = np.random.randint(
+            int(w * min_offset_x), int(w * (1 - min_offset_x)))
+        cuty = np.random.randint(
+            int(h * min_offset_y), int(h * (1 - min_offset_y)))
 
         new_image = np.zeros([h, w, 3])
         new_image[:cuty, :cutx, :] = image_datas[0][:cuty, :cutx, :]
@@ -212,9 +222,11 @@ class YoloDataset(Dataset):
         index = index % n
         if self.mosaic:
             if self.flag and (index + 4) < n:
-                img, y = self.get_random_data_with_Mosaic(lines[index:index + 4], self.image_size[0:2])
+                img, y = self.get_random_data_with_Mosaic(
+                    lines[index:index + 4], self.image_size[0:2])
             else:
-                img, y = self.get_random_data(lines[index], self.image_size[0:2])
+                img, y = self.get_random_data(
+                    lines[index], self.image_size[0:2])
             self.flag = bool(1-self.flag)
         else:
             img, y = self.get_random_data(lines[index], self.image_size[0:2])
@@ -252,4 +264,3 @@ def yolo_dataset_collate(batch):
     images = np.array(images)
     bboxes = np.array(bboxes)
     return images, bboxes
-

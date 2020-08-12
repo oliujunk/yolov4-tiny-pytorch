@@ -1,0 +1,7 @@
+VOCdevkit/VOC2007/Annotations/
+VOCdevkit/VOC2007/JPEGImages/
+VOCdevkit/VOC2007/ImageSets/Main/*
+logs/
+.vscode/
+*__pycache__**
+*.pth
